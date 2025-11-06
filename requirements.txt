@@ -1,0 +1,41 @@
+# Job Market Project Requirements
+# FastAPI framework for building APIs
+fastapi
+uvicorn
+pydantic
+
+# Dash framework
+dash
+plotly
+
+# HTTP requests
+requests
+
+# MongoDB
+pymongo
+motor  # asynchronous MongoDB driver
+
+# Elasticsearch client
+elasticsearch>=8.0.0,<9.0.0 #!important to specify version for compatibility
+
+# Terminal progress bar
+tqdm
+
+# HTML parsing
+beautifulsoup4
+lxml
+
+# Environment variables
+python-dotenv
+
+# Database drivers (PostgreSQL)
+psycopg2-binary
+pandas
+
+# Testing 
+pytest
+httpx
+
+# Linters
+black
+flake8

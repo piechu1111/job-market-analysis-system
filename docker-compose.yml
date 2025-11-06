@@ -1,0 +1,177 @@
+services:
+  app:
+    build: .
+    container_name: job_api_app
+    ports:
+      - "${APP_PORT}:8000"
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: ${PYTHONPATH}
+      MONGO_URI: ${MONGO_URI}
+      POSTGRES_URL: ${POSTGRES_URL}
+      ES_URL: ${ES_URL}
+      API_URL: ${API_URL}
+      DASH_URL: ${DASH_URL}
+    depends_on:
+      - mongo
+      - postgres
+      - es
+
+  dash:    
+    build: .
+    container_name: dash_viz
+    command: python -m app.dash_app
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      API_URL: ${API_URL}
+    depends_on:
+      - app
+    ports:
+      - "${DASH_PORT}:8050"
+
+  mongo:
+    image: mongo:6
+    container_name: mongo
+    restart: unless-stopped
+    ports:
+      - "${MONGO_PORT}:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: ${POSTGRES_DB}
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  es:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.1
+    container_name: es
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - bootstrap.memory_lock=true
+      - ES_JAVA_OPTS=${ES_JAVA_OPTS}
+    ports:
+      - "${ES_PORT}:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+
+  airflow-init:
+    image: apache/airflow:2.9.1-python3.11
+    container_name: airflow-init
+    depends_on:
+      - airflow_postgres
+    env_file:
+      - .env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@airflow_postgres:5432/${AIRFLOW_DB_NAME}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME}
+      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD}
+      _AIRFLOW_WWW_USER_EMAIL: ${_AIRFLOW_WWW_USER_EMAIL}
+      _AIRFLOW_WWW_USER_FIRSTNAME: ${_AIRFLOW_WWW_USER_FIRSTNAME}
+      _AIRFLOW_WWW_USER_LASTNAME: ${_AIRFLOW_WWW_USER_LASTNAME}
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/requirements.txt:/requirements.txt
+      - ./.env:/opt/airflow/.env
+    entrypoint: >
+      bash -c "
+        pip install -r /requirements.txt &&
+        airflow db migrate &&
+        airflow users create \
+          --username ${_AIRFLOW_WWW_USER_USERNAME} \
+          --password ${_AIRFLOW_WWW_USER_PASSWORD} \
+          --firstname ${_AIRFLOW_WWW_USER_FIRSTNAME} \
+          --lastname ${_AIRFLOW_WWW_USER_LASTNAME} \
+          --role Admin \
+          --email ${_AIRFLOW_WWW_USER_EMAIL} || true
+      "
+
+  airflow-webserver:
+    image: apache/airflow:2.9.1-python3.11
+    container_name: airflow-webserver
+    restart: unless-stopped
+    depends_on:
+      - airflow_postgres
+      - airflow-init
+    env_file:
+      - .env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@airflow_postgres:5432/${AIRFLOW_DB_NAME}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/requirements.txt:/requirements.txt
+      - ./.env:/opt/airflow/.env
+    ports:
+      - "${AIRFLOW_WEB_PORT}:8080"
+    command: >
+      bash -c "
+        pip install -r /requirements.txt &&
+        exec airflow webserver
+      "
+
+  airflow-scheduler:
+    image: apache/airflow:2.9.1-python3.11
+    container_name: airflow-scheduler
+    restart: unless-stopped
+    depends_on:
+      - airflow_postgres
+      - airflow-init
+    env_file:
+      - .env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@airflow_postgres:5432/${AIRFLOW_DB_NAME}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/requirements.txt:/requirements.txt
+      - ./.env:/opt/airflow/.env
+    command: >
+      bash -c "
+        pip install -r /requirements.txt &&
+        exec airflow scheduler
+      "
+
+  airflow_postgres:
+    image: postgres:15
+    container_name: airflow_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${AIRFLOW_DB_USER}
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+      POSTGRES_DB: ${AIRFLOW_DB_NAME}
+    volumes:
+      - airflow_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  mongo_data:
+  postgres_data:
+  es_data:
+  airflow_postgres_data:
