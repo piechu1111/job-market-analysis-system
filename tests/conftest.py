@@ -1,5 +1,6 @@
 import sys
 from unittest.mock import MagicMock
+import os
 
 # create a MagicMock to stand in for the mongo collection
 mock_collection = MagicMock()
