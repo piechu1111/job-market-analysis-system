@@ -1,0 +1,29 @@
+# VCS / CI
+.git
+.github
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.dist/
+.build/
+.pytest_cache/
+.mypy_cache/
+coverage.xml
+htmlcov/
+
+# Envs
+.venv/
+.env
+.env.*
+!.env.example
+
+# Node (na wszelki)
+node_modules/
+
+# OS junk
+.DS_Store
+Thumbs.db
