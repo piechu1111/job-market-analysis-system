@@ -64,6 +64,7 @@ def test_index_for_final_search_no_docs(
     mock_es.indices.create.return_value = None
 
     index_for_final_search(index_name="empty_index", drop_if_exists=True)
+
     # Should not call bulk if no docs
     assert not mock_bulk.called
 
@@ -80,6 +81,7 @@ def test_index_for_final_search_no_drop(
     mock_es.indices.create.return_value = None
 
     index_for_final_search(index_name="no_drop_index", drop_if_exists=False)
+
     # Should not call delete
     assert not mock_es.indices.delete.called
     # Should create index and call bulk
